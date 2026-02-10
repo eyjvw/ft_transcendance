@@ -1,4 +1,4 @@
-import { registerController } from "./controllers/user.controller";
+import { registerController } from "./controllers/auth.controller";
 
 const routes: Record<string, (req: Request) => Promise<Response>> = {
 	"POST:/api/register": registerController

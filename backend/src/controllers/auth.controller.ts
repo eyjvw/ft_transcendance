@@ -36,7 +36,40 @@ export async function registerController(req: Request): Promise<Response>
 		return new Response(JSON.stringify({ success: true, user: newUser }), {
 			status: 200,
 			headers: {
-				"Set-Cookie": `token=${await createJWT(newUser!.id.toString()!)}; HttpOnly; Path=/`
+				"Set-Cookie": `token=${await createJWT(newUser!.id.toString()!)}; HttpOnly; Path=/; SameSite=Lax; Secure`
+			}
+		});
+	}
+	catch(err: unknown)
+	{	
+		console.error(err);
+		return new Response(JSON.stringify({ error: "Server Error" }), { status: 500 });
+	}
+}
+
+export async function loginController(req: Request): Promise<Response>
+{
+	try
+	{
+		const parsed: ZodSafeParseResult<RegisterInput> = registerSchema.safeParse(await req.json());
+
+		if (!parsed.success)
+			return new Response(JSON.stringify({ error: z.treeifyError(parsed.error) }), { status: 400 });
+
+		const { username, email, password } = parsed.data;
+		const existingUser = await db.select().from(users).where(or(eq(users.email, email), eq(users.username, username))).limit(1);
+
+		if (existingUser.length < 0)
+			return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401 });
+		const correctPass: boolean = await bcrypt.compare(password, existingUser[0]!.password_hash);
+    
+		if (!correctPass)
+			return new Response(JSON.stringify({ error: "Invalid credentials" }), { status: 401 });
+	
+		return new Response(JSON.stringify({ success: true }), {
+			status: 200,
+			headers: {
+				"Set-Cookie": `token=${await createJWT(existingUser[0]!.id.toString()!)}; HttpOnly; Path=/; SameSite=Lax; Secure`
 			}
 		});
 	}
@@ -46,16 +79,3 @@ export async function registerController(req: Request): Promise<Response>
 		return new Response(JSON.stringify({ error: "Server Error" }), { status: 500 });
 	}
 }
-
-//export async function loginController(req: Request): Promise<Response>
-//{
-//	try
-//	{
-
-//	}
-//	catch(err: unknown)
-//	{
-//		console.error(err);
-//		return new Response(JSON.stringify({ error: "Server Error" }), { status: 500 });
-//	}
-//}
